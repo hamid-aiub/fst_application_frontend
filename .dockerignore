@@ -1,0 +1,14 @@
+.git
+.gitignore
+.next
+node_modules
+**/node_modules
+out
+coverage
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+*.log
+*.tsbuildinfo
