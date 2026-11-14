@@ -14,7 +14,7 @@ async function readResponse<T>(response: Response): Promise<T> {
 }
 
 export async function signInRequest(input: SignInPayload) {
-  const response = await fetch("/api/auth/sign-in", {
+  const response = await fetch("/session/auth/sign-in", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -23,12 +23,12 @@ export async function signInRequest(input: SignInPayload) {
 }
 
 export async function currentUserRequest() {
-  const response = await fetch("/api/auth/me", { cache: "no-store" });
+  const response = await fetch("/session/auth/me", { cache: "no-store" });
   return readResponse<AuthUser>(response);
 }
 
 export async function signOutRequest() {
-  const response = await fetch("/api/auth/sign-out", {
+  const response = await fetch("/session/auth/sign-out", {
     method: "POST",
     signal: AbortSignal.timeout(4_000),
   });
