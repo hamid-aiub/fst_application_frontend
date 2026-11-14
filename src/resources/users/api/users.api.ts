@@ -1,11 +1,15 @@
 import { apiRequest } from "@/resources/shared/api/api-client";
-import type { PaginatedUsers, UserImportResult, UserListQuery, UserRecord } from "@/resources/users/types/users.types";
+import type { PaginatedUsers, UserDetail, UserImportResult, UserListQuery, UserRecord } from "@/resources/users/types/users.types";
 
 export function listUsersRequest(query: UserListQuery) {
   const params = new URLSearchParams({ page: String(query.page), limit: String(query.limit) });
   if (query.search?.trim()) params.set("search", query.search.trim());
   if (query.status && query.status !== "all") params.set("status", query.status);
   return apiRequest<PaginatedUsers>(`users?${params.toString()}`);
+}
+
+export function getUserRequest(id: string) {
+  return apiRequest<UserDetail>(`users/${encodeURIComponent(id)}`);
 }
 
 export function createUserRequest(input: { employeeId: string; name: string; email: string; password: string; isActive: boolean }) {

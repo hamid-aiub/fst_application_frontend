@@ -15,6 +15,7 @@ export interface AuthUser {
   } | null;
   roles: string[];
   permissions: string[];
+  rolePermissions?: Record<string, string[]>;
   sessionId: string;
 }
 
@@ -24,5 +25,5 @@ export interface SignInPayload {
 }
 
 export interface SignInResult {
-  user: Pick<AuthUser, "id" | "email" | "name" | "roles" | "permissions">;
+  user: Pick<AuthUser, "id" | "email" | "name" | "roles" | "permissions" | "rolePermissions">;
 }

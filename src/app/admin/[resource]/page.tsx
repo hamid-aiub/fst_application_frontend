@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight, CircleAlert, FileSpreadsheet, LoaderCircle, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DataTable, type DataColumn } from "@/components/admin/data-table";
 import { useAdminUser } from "@/components/admin/admin-shell";
 import { hasPermission } from "@/resources/auth/service/auth.service";
 import { RESOURCE_MAP } from "@/resources/management/config/resources";
+import { useSemester } from "@/components/admin/semester-context";
 import { createResource, deleteResource, importResource, listResource, updateResource } from "@/resources/management/service/resource.service";
 import type { GenericRecord, ResourceField } from "@/resources/management/types/resource.types";
 
@@ -50,6 +52,7 @@ function ResourceEditor({
   title,
   fields,
   record,
+  semesterId,
   busy,
   onClose,
   onSave,
@@ -57,6 +60,7 @@ function ResourceEditor({
   title: string;
   fields: ResourceField[];
   record?: GenericRecord;
+  semesterId: string;
   busy: boolean;
   onClose: () => void;
   onSave: (values: Record<string, unknown>) => Promise<void>;
@@ -69,7 +73,8 @@ function ResourceEditor({
     let active = true;
     const remoteFields = fields.filter((field) => field.optionsResource);
     Promise.allSettled(remoteFields.map(async (field) => {
-      const result = await listResource(field.optionsResource!, 1, 100);
+      const usesSemester = ["courses", "sections", "tasks", "class_cancellations"].includes(field.optionsResource!);
+      const result = await listResource(field.optionsResource!, 1, 100, usesSemester ? { semesterId } : undefined);
       return [field.key, result.data.map((item) => ({
         value: String(item.id),
         label: field.optionsResource === "permissions"
@@ -83,7 +88,7 @@ function ResourceEditor({
       setOptions(next);
     });
     return () => { active = false; };
-  }, [fields]);
+  }, [fields, semesterId]);
 
   function updateField(field: ResourceField, value: string | boolean) {
     setValues((current) => ({ ...current, [field.key]: value }));
@@ -130,11 +135,13 @@ function ResourceEditor({
   </div>;
 }
 
-export default function ManagedResourcePage() {
+export default function ManagedResourcePage({ resourceOverride }: { resourceOverride?: string } = {}) {
   const params = useParams<{ resource: string }>();
-  const slug = params.resource;
+  const router = useRouter();
+  const slug = resourceOverride ?? params.resource;
   const config = RESOURCE_MAP[slug];
   const admin = useAdminUser();
+  const { semesterId } = useSemester();
   const [records, setRecords] = useState<GenericRecord[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [page, setPage] = useState(1);
@@ -160,12 +167,13 @@ export default function ManagedResourcePage() {
     setLoading(true);
     setError("");
     try {
-      const result = await listResource(config.slug, page, limit);
+      const usesSemester = ["courses", "sections", "tasks", "class_cancellations"].includes(config.slug);
+      const result = await listResource(config.slug, page, limit, usesSemester ? { semesterId } : undefined);
       setRecords(result.data);
       setPagination(result.pagination);
     } catch (reason) { setError(msg(reason)); }
     finally { setLoading(false); }
-  }, [config, read, page, limit]);
+  }, [config, read, page, limit, semesterId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadRecords(); }, 0);
@@ -228,6 +236,21 @@ export default function ManagedResourcePage() {
 
   const start = pagination.total ? (page - 1) * limit + 1 : 0;
   const end = Math.min(page * limit, pagination.total);
+  const columns: DataColumn<GenericRecord>[] = config.columns.map((column) => ({
+    ...column,
+    render: (record) => {
+      const cell = nestedValue(record, column.key);
+      if (config.slug === "courses" && column.key === "name") return <span className="font-semibold text-[#40516c]">{formatValue(cell)}<span className="ml-2 text-[10px] font-medium text-[#5d70c7]">View</span></span>;
+      return formatValue(cell);
+    },
+  }));
+  if (canUpdate || canDelete) columns.push({
+    key: "actions", label: "Actions", sortable: false, className: "w-[120px] text-right",
+    render: (record) => <div onClick={(event) => event.stopPropagation()} className="flex justify-end gap-1.5">
+      {canUpdate && <Button variant="outline" size="sm" onClick={() => setEditor({ record })} className="h-8 rounded-lg border-[#e5e9f0] px-2.5 text-[11px] text-[#586985]">Edit</Button>}
+      {canDelete && <Button variant="ghost" size="icon-sm" aria-label={`Delete ${config.title} record`} onClick={() => setDeleteTarget(record)} className="rounded-lg text-[#8792a4] hover:bg-rose-50 hover:text-rose-600"><Trash2 className="size-4" /></Button>}
+    </div>,
+  });
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-4"><div><div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8a96a9]"><span>{config.group}</span><span className="text-[#c4cad4]">/</span><span className="text-[#5e6fc5]">{config.title}</span></div><h1 className="text-[30px] font-semibold tracking-[-0.045em] text-[#1d2b42]">{config.title}</h1><p className="mt-1.5 text-sm text-[#78859a]">{config.description}</p></div><div className="flex flex-wrap items-center gap-2">{config.import && <><select value={importSemesterId} onChange={(event) => setImportSemesterId(event.target.value)} aria-label="Choose semester for import" className="h-10 rounded-lg border border-[#dfe5ee] bg-white px-3 text-xs text-[#53627a]"><option value="">Select semester</option>{semesterOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><input ref={importInput} type="file" accept=".xlsx" className="sr-only" onChange={(event) => void handleImport(event.currentTarget.files?.[0])} /><Button variant="outline" disabled={!canCreate || pending} onClick={() => importInput.current?.click()} className="h-10 gap-2 rounded-lg border-[#dfe5ee] bg-white px-3.5 text-xs"><FileSpreadsheet className="size-4 text-[#548a69]" /> Import Excel</Button></>}{canCreate && <Button disabled={pending} onClick={() => setEditor({})} className="h-10 gap-2 rounded-lg bg-[#293b5b] px-4 text-xs font-semibold text-white hover:bg-[#344a70]"><Plus className="size-4" /> Add record</Button>}</div></div>
@@ -237,33 +260,11 @@ export default function ManagedResourcePage() {
 
     <section className="overflow-hidden rounded-2xl border border-[#e7ebf2] bg-white shadow-[0_18px_50px_-40px_rgba(29,43,66,0.35)]">
       <div className="flex items-center justify-between border-b border-[#edf0f5] px-5 py-4"><div><h2 className="text-sm font-semibold text-[#293952]">Records</h2><p className="mt-0.5 text-[11px] text-[#8d98aa]">{pagination.total.toLocaleString()} total</p></div><span className="text-xs text-[#8290a5]">{config.title}</span></div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left">
-          <thead><tr className="bg-[#fafbfd] text-[10px] font-semibold uppercase tracking-[0.1em] text-[#8995a7]">
-            {config.columns.map((column) => <th key={column.key} className="whitespace-nowrap px-5 py-3">{column.label}</th>)}
-            {(canUpdate || canDelete) && <th className="px-5 py-3 text-right">Actions</th>}
-          </tr></thead>
-          <tbody className="divide-y divide-[#f0f2f6]">
-            {loading ? Array.from({ length: 5 }, (_, index) => (
-              <tr key={index} className="animate-pulse"><td colSpan={config.columns.length + 1} className="px-5 py-5"><div className="h-5 rounded bg-[#f0f2f6]" /></td></tr>
-            )) : records.length ? records.map((record) => (
-              <tr key={record.id} className="transition hover:bg-[#fafbfe]">
-                {config.columns.map((column) => <td key={column.key} className="max-w-[300px] truncate whitespace-nowrap px-5 py-3.5 text-xs text-[#53627a]">{formatValue(nestedValue(record, column.key))}</td>)}
-                {(canUpdate || canDelete) && <td className="px-5 py-3.5"><div className="flex justify-end gap-1.5">
-                  {canUpdate && <Button variant="outline" size="sm" onClick={() => setEditor({ record })} className="h-8 rounded-lg border-[#e5e9f0] px-2.5 text-[11px] text-[#586985]">Edit</Button>}
-                  {canDelete && <Button variant="ghost" size="icon-sm" aria-label={`Delete ${config.title} record`} onClick={() => setDeleteTarget(record)} className="rounded-lg text-[#8792a4] hover:bg-rose-50 hover:text-rose-600"><Trash2 className="size-4" /></Button>}
-                </div></td>}
-              </tr>
-            )) : (
-              <tr><td colSpan={config.columns.length + (canUpdate || canDelete ? 1 : 0)} className="px-5 py-16 text-center"><p className="text-sm font-semibold text-[#3d4d67]">No records yet</p><p className="mt-1 text-xs text-[#8f9aac]">Create a record to start managing {config.title.toLowerCase()}.</p></td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable rows={records} columns={columns} loading={loading} onRowClick={config.slug === "courses" ? (record) => router.push(`/admin/courses/${record.id}`) : undefined} emptyTitle="No records yet" emptyDescription={`Create a record to start managing ${config.title.toLowerCase()}.`} />
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0f5] px-4 py-3.5 sm:px-5"><div className="flex items-center gap-2 text-[11px] text-[#8b96a8]">Rows per page <select value={limit} onChange={(event) => { setLimit(Number(event.target.value)); setPage(1); }} className="h-7 rounded-md border border-[#e2e7ee] bg-white px-1.5 text-[11px] text-[#53627a]"><option value={10}>10</option><option value={20}>20</option><option value={50}>50</option></select><span>· {start}–{end} of {pagination.total}</span></div><div className="flex items-center gap-2"><span className="mr-1 text-[11px] text-[#8b96a8]">Page {page} of {Math.max(1, pagination.totalPages)}</span><Button variant="outline" size="icon-sm" aria-label="Previous page" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} className="size-8 rounded-lg border-[#e2e7ee]"><ChevronLeft className="size-4" /></Button><Button variant="outline" size="icon-sm" aria-label="Next page" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)} className="size-8 rounded-lg border-[#e2e7ee]"><ChevronRight className="size-4" /></Button></div></div>
     </section>
 
-    {editor && <ResourceEditor title={config.title} fields={config.fields} record={editor.record} busy={pending} onClose={() => setEditor(null)} onSave={saveRecord} />}
+    {editor && <ResourceEditor title={config.title} fields={config.fields} record={editor.record} semesterId={semesterId} busy={pending} onClose={() => setEditor(null)} onSave={saveRecord} />}
     {deleteTarget && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#172235]/35 p-4 backdrop-blur-sm"><section role="alertdialog" aria-modal="true" aria-labelledby="delete-record-title" className="w-full max-w-md rounded-2xl border border-white bg-white p-6 shadow-2xl"><div className="grid size-10 place-items-center rounded-xl bg-rose-50 text-rose-600"><Trash2 className="size-5" /></div><h2 id="delete-record-title" className="mt-4 text-lg font-semibold text-[#263650]">Delete this record?</h2><p className="mt-2 text-sm text-[#748198]">This action cannot be undone.</p><div className="mt-6 flex justify-end gap-2"><Button variant="outline" disabled={pending} onClick={() => setDeleteTarget(null)} className="h-9 rounded-lg px-4 text-xs">Cancel</Button><Button variant="destructive" disabled={pending} onClick={() => void removeRecord()} className="h-9 rounded-lg px-4 text-xs">{pending && <LoaderCircle className="size-4 animate-spin" />} Delete</Button></div></section></div>}
   </div>;
 }

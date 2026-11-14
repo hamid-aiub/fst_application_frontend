@@ -28,7 +28,7 @@ export const RESOURCE_CONFIGS: ResourceConfig[] = [
     fields: [
       { key: "courseId", label: "Course", type: "select", required: true, optionsResource: "courses", optionLabel: "name" }, { key: "name", label: "Section name", type: "text", required: true },
       { key: "semesterId", label: "Semester", type: "select", required: true, optionsResource: "semesters", optionLabel: "name" }, { key: "userId", label: "Faculty member", type: "select", required: true, optionsResource: "users", optionLabel: "name" },
-      { key: "room1", label: "Room 1", type: "text", required: true }, { key: "day1", label: "Day 1", type: "select", required: true, options: weekdays }, { key: "room2", label: "Room 2", type: "text" }, { key: "day2", label: "Day 2", type: "select", options: weekdays }, { key: "room3", label: "Room 3", type: "text" }, { key: "day3", label: "Day 3", type: "select", options: weekdays },
+      { key: "room1", label: "Room 1", type: "text", required: true }, { key: "day1", label: "Day 1", type: "select", required: true, options: weekdays }, { key: "time1", label: "Time 1", type: "text" }, { key: "room2", label: "Room 2", type: "text" }, { key: "day2", label: "Day 2", type: "select", options: weekdays }, { key: "time2", label: "Time 2", type: "text" }, { key: "room3", label: "Room 3", type: "text" }, { key: "day3", label: "Day 3", type: "select", options: weekdays }, { key: "time3", label: "Time 3", type: "text" },
     ], import: { requiredField: "semesterId", label: "Semester" },
   },
   {

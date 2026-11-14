@@ -25,6 +25,7 @@ export const authSessionSchema = z.object({
     name: z.string().optional(),
     roles: z.array(z.string()),
     permissions: z.array(z.string()),
+    rolePermissions: z.record(z.string(), z.array(z.string())).optional(),
   }),
 });
 
