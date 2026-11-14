@@ -17,7 +17,7 @@ export async function POST() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),
         cache: "no-store",
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(2_000),
       }).then(readJson);
     } catch {
       // Clear the browser session even if the API is temporarily unavailable.

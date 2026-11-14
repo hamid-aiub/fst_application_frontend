@@ -51,12 +51,18 @@ export default function DashboardPage() {
   }, [router]);
 
   async function signOut() {
+    if (signingOut) return;
     setSigningOut(true);
     try {
-      await fetch("/api/auth/sign-out", { method: "POST" });
+      await fetch("/api/auth/sign-out", {
+        method: "POST",
+        signal: AbortSignal.timeout(4_000),
+      });
+    } catch {
+      // The sign-out route clears the local session even if the API is unavailable.
     } finally {
-      router.replace("/");
-      router.refresh();
+      setSigningOut(false);
+      window.location.replace("/");
     }
   }
 
