@@ -11,9 +11,16 @@ export function getApiBaseUrl() {
 }
 
 export function cookieOptions(maxAge: number) {
+  const cookieSecure = process.env.AUTH_COOKIE_SECURE;
+  const secure = cookieSecure === "true"
+    ? true
+    : cookieSecure === "false"
+      ? false
+      : process.env.NODE_ENV === "production";
+
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax" as const,
     path: "/",
     maxAge: Math.max(0, Math.floor(maxAge)),

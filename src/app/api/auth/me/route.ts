@@ -77,7 +77,8 @@ export async function GET() {
     const response = NextResponse.json(payload);
     if (rotatedSession) setSessionCookies(response, rotatedSession);
     return response;
-  } catch {
+  } catch (error) {
+    console.error("[Auth] Current-user request could not reach the backend:", error);
     return NextResponse.json(
       { message: "Can’t reach the FST server right now." },
       { status: 502 },

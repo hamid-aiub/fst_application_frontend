@@ -40,7 +40,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 The frontend runs as a production Next.js standalone container on port `3000`. It joins the shared `aiub-infrastructure` Docker network and reaches the backend using `http://api:5001`.
 
 1. Start the backend stack and make sure the shared `aiub-infrastructure` Docker network exists.
-2. Copy `.env.docker.example` to `.env.docker`. Set `NEXT_PUBLIC_API_BASE_URL` to the backend URL visitors can reach in their browser; this value is baked into the frontend image for profile image links. Keep `API_BASE_URL=http://api:5001` for server-to-server calls on Docker.
+2. Copy `.env.docker.example` to `.env.docker`. Set `NEXT_PUBLIC_API_BASE_URL` to the backend URL visitors can reach in their browser; this value is baked into the frontend image for profile image links. Keep `API_BASE_URL=http://api:5001` for server-to-server calls on Docker. `AUTH_COOKIE_SECURE=false` is needed while users access the app over plain HTTP; switch it to `true` when using HTTPS.
 3. Build and start the frontend:
 
    ```sh

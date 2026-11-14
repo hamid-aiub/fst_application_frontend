@@ -15,6 +15,7 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       API_BASE_URL: ${API_BASE_URL:-http://api:5001}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
     ports:
       - "${FRONTEND_HOST_PORT:-3000}:3000"
     healthcheck:

@@ -51,7 +51,8 @@ export async function POST(request: Request) {
     const response = NextResponse.json({ user: session.data.user });
     setSessionCookies(response, session.data);
     return response;
-  } catch {
+  } catch (error) {
+    console.error("[Auth] Sign-in request could not reach the backend:", error);
     return NextResponse.json(
       { message: "Can’t reach the FST server right now. Please try again shortly." },
       { status: 502 },
