@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signInSchema } from "@/lib/auth-schema";
+import { signIn } from "@/resources/auth/service/auth.service";
 
 type FieldErrors = { identifier?: string; password?: string };
 
@@ -47,24 +48,15 @@ export function LoginForm() {
     setErrors({});
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/auth/sign-in", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed.data),
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | { message?: string; user?: { name?: string } }
-        | null;
-
-      if (!response.ok) {
-        setFormError(payload?.message ?? "We couldn’t sign you in. Please try again.");
-        return;
-      }
-
-      router.replace("/dashboard");
+      const session = await signIn(parsed.data);
+      const firstReadableModule = session.user.permissions.find((permission) => permission.endsWith(".read"))?.replace(/\.read$/, "");
+      const landingPage = session.user.roles.includes("admin")
+        ? "/admin/users"
+        : firstReadableModule ? `/admin/${firstReadableModule}` : "/dashboard";
+      router.replace(landingPage);
       router.refresh();
-    } catch {
-      setFormError("We couldn’t connect to the sign-in service. Check your connection and try again.");
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "We couldn’t sign you in. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

@@ -5,47 +5,37 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, BookOpen, LoaderCircle, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-type CurrentUser = {
-  id: string;
-  employeeId?: string;
-  name?: string;
-  email?: string;
-  isActive: boolean;
-  profile: { department: string | null; faculty: string | null } | null;
-  roles: string[];
-  permissions: string[];
-};
+import { getCurrentUser, signOut as signOutSession } from "@/resources/auth/service/auth.service";
+import type { AuthUser } from "@/resources/auth/types/auth.types";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     let active = true;
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then(async (response) => {
-        if (response.status === 401) {
-          router.replace("/");
-          return null;
-        }
-        const payload = (await response.json().catch(() => null)) as CurrentUser | { message?: string } | null;
-        if (!response.ok) throw new Error((payload as { message?: string } | null)?.message ?? "Could not load your account.");
-        return payload as CurrentUser;
+    getCurrentUser()
+      .then((profile) => {
+        if (!active) return null;
+        return profile;
       })
-      .then((profile) => { if (active && profile) setUser(profile); })
       .catch((error: unknown) => {
+        if (error instanceof Error && /session has expired|not signed in/i.test(error.message)) {
+          router.replace("/");
+        }
         if (active) setUser({
           id: "",
           isActive: false,
           profile: null,
           roles: [],
           permissions: [],
+          sessionId: "",
           name: error instanceof Error ? error.message : "Could not load your account.",
         });
       })
+      .then((profile) => { if (active && profile) setUser(profile); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [router]);
@@ -54,10 +44,7 @@ export default function DashboardPage() {
     if (signingOut) return;
     setSigningOut(true);
     try {
-      await fetch("/api/auth/sign-out", {
-        method: "POST",
-        signal: AbortSignal.timeout(4_000),
-      });
+      await signOutSession();
     } catch {
       // The sign-out route clears the local session even if the API is unavailable.
     } finally {
