@@ -10,7 +10,7 @@ export class ApiError extends Error {
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/backend/${path.replace(/^\/+/, "")}`, {
+  const response = await fetch(`/session/backend/${path.replace(/^\/+/, "")}`, {
     ...init,
     cache: "no-store",
   });
