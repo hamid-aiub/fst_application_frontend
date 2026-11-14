@@ -40,7 +40,7 @@ function roleLabel(role: string) {
 function routesForRole(user: AuthUser, role: string) {
   const permissions = user.rolePermissions?.[role] ?? (user.roles.length === 1 ? user.permissions : []);
   const routes = RESOURCE_CONFIGS
-    .filter((resource) => hasPermission(permissions, resource.slug, "read"))
+    .filter((resource) => !["sections", "task_attachments"].includes(resource.slug) && hasPermission(permissions, resource.slug, "read"))
     .map((resource) => ({ href: `/admin/${resource.slug}`, label: resource.title, icon: routeIcon(resource.slug) }));
   if (hasPermission(permissions, "users", "read")) routes.unshift({ href: "/admin/users", label: "Users", icon: UsersRound });
   if (role === "admin") routes.unshift({ href: "/dashboard", label: "Overview", icon: LayoutDashboard });

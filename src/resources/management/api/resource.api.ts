@@ -1,9 +1,10 @@
 import { apiRequest } from "@/resources/shared/api/api-client";
 import type { GenericRecord, ResourcePageResult } from "@/resources/management/types/resource.types";
 
-export function listResourceRequest(slug: string, page: number, limit: number, filters: { semesterId?: string } = {}) {
+export function listResourceRequest(slug: string, page: number, limit: number, filters: { semesterId?: string; search?: string } = {}) {
   const query = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (filters.semesterId) query.set("semesterId", filters.semesterId);
+  if (filters.search?.trim()) query.set("search", filters.search.trim());
   return apiRequest<ResourcePageResult>(`${slug}?${query.toString()}`);
 }
 

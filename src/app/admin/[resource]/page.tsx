@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ChevronLeft, ChevronRight, CircleAlert, FileSpreadsheet, LoaderCircle, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, CircleAlert, FileSpreadsheet, LoaderCircle, Plus, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataColumn } from "@/components/admin/data-table";
 import { useAdminUser } from "@/components/admin/admin-shell";
@@ -146,6 +146,8 @@ export default function ManagedResourcePage({ resourceOverride }: { resourceOver
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -156,6 +158,14 @@ export default function ManagedResourcePage({ resourceOverride }: { resourceOver
   const [importSemesterId, setImportSemesterId] = useState("");
   const [semesterOptions, setSemesterOptions] = useState<Array<{ value: string; label: string }>>([]);
   const importInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const read = Boolean(config && hasPermission(admin?.permissions ?? [], config.slug, "read"));
   const canCreate = Boolean(config && hasPermission(admin?.permissions ?? [], config.slug, "create"));
@@ -168,12 +178,15 @@ export default function ManagedResourcePage({ resourceOverride }: { resourceOver
     setError("");
     try {
       const usesSemester = ["courses", "sections", "tasks", "class_cancellations"].includes(config.slug);
-      const result = await listResource(config.slug, page, limit, usesSemester ? { semesterId } : undefined);
+      const result = await listResource(config.slug, page, limit, {
+        ...(usesSemester ? { semesterId } : {}),
+        ...(config.slug === "courses" && search ? { search } : {}),
+      });
       setRecords(result.data);
       setPagination(result.pagination);
     } catch (reason) { setError(msg(reason)); }
     finally { setLoading(false); }
-  }, [config, read, page, limit, semesterId]);
+  }, [config, read, page, limit, semesterId, search]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadRecords(); }, 0);
@@ -259,8 +272,8 @@ export default function ManagedResourcePage({ resourceOverride }: { resourceOver
     {importResult && <div className="rounded-xl border border-[#e4eadf] bg-[#f3f8f0] p-4 text-xs text-[#526b43]"><p className="font-semibold">Import report</p><p className="mt-1">{String(importResult.createdCount ?? 0)} created · {String(importResult.skippedCount ?? 0)} skipped out of {String(importResult.totalRows ?? 0)} rows.</p>{Array.isArray(importResult.skippedRows) && importResult.skippedRows.length > 0 && <ul className="mt-2 max-h-28 space-y-1 overflow-auto">{importResult.skippedRows.map((row, index) => <li key={index}>Row {String(row.row)}: {String(row.reason)}</li>)}</ul>}</div>}
 
     <section className="overflow-hidden rounded-2xl border border-[#e7ebf2] bg-white shadow-[0_18px_50px_-40px_rgba(29,43,66,0.35)]">
-      <div className="flex items-center justify-between border-b border-[#edf0f5] px-5 py-4"><div><h2 className="text-sm font-semibold text-[#293952]">Records</h2><p className="mt-0.5 text-[11px] text-[#8d98aa]">{pagination.total.toLocaleString()} total</p></div><span className="text-xs text-[#8290a5]">{config.title}</span></div>
-      <DataTable rows={records} columns={columns} loading={loading} onRowClick={config.slug === "courses" ? (record) => router.push(`/admin/courses/${record.id}`) : undefined} emptyTitle="No records yet" emptyDescription={`Create a record to start managing ${config.title.toLowerCase()}.`} />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#edf0f5] px-5 py-4"><div><h2 className="text-sm font-semibold text-[#293952]">Records</h2><p className="mt-0.5 text-[11px] text-[#8d98aa]">{pagination.total.toLocaleString()} total</p></div><div className="flex items-center gap-3">{config.slug === "courses" && <label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#98a2b2]" /><input type="search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Search courses" aria-label="Search courses" className="h-9 w-[220px] rounded-lg border border-[#e0e6ef] bg-white pl-9 pr-3 text-xs text-[#34435b] outline-none placeholder:text-[#a3adbb] focus:border-[#91a0e2] focus:ring-4 focus:ring-[#6679d2]/10 sm:w-[260px]" /></label>}<span className="text-xs text-[#8290a5]">{config.title}</span></div></div>
+      <DataTable rows={records} columns={columns} loading={loading} onRowClick={config.slug === "courses" ? (record) => router.push(`/admin/courses/${record.id}`) : config.slug === "tasks" ? (record) => router.push(`/admin/tasks/${record.id}`) : undefined} emptyTitle={search ? "No matching courses" : "No records yet"} emptyDescription={search ? "Try a different course name, code, or department." : `Create a record to start managing ${config.title.toLowerCase()}.`} />
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0f5] px-4 py-3.5 sm:px-5"><div className="flex items-center gap-2 text-[11px] text-[#8b96a8]">Rows per page <select value={limit} onChange={(event) => { setLimit(Number(event.target.value)); setPage(1); }} className="h-7 rounded-md border border-[#e2e7ee] bg-white px-1.5 text-[11px] text-[#53627a]"><option value={10}>10</option><option value={20}>20</option><option value={50}>50</option></select><span>· {start}–{end} of {pagination.total}</span></div><div className="flex items-center gap-2"><span className="mr-1 text-[11px] text-[#8b96a8]">Page {page} of {Math.max(1, pagination.totalPages)}</span><Button variant="outline" size="icon-sm" aria-label="Previous page" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} className="size-8 rounded-lg border-[#e2e7ee]"><ChevronLeft className="size-4" /></Button><Button variant="outline" size="icon-sm" aria-label="Next page" disabled={page >= pagination.totalPages || loading} onClick={() => setPage((value) => value + 1)} className="size-8 rounded-lg border-[#e2e7ee]"><ChevronRight className="size-4" /></Button></div></div>
     </section>
 
